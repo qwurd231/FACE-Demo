@@ -1,17 +1,15 @@
 <script setup>
 import TopBar from './components/header/TopBar.vue'
-import TestTextArea from './components/body/TestTextArea.vue'
-import StatisticGraph from './components/body/StatisticGraph.vue'
-import StatisticExplanation from './components/body/StatisticExplanation.vue'
+import InputTextArea from './components/body/InputTextArea.vue'
+import AnalysedParametersAndText from './components/body/AnalysedParametersAndText.vue'
 </script>
 
 <template>
   <TopBar />
   <div class="main_frame">
-    <TestTextArea />
-    <div class="module" style="position: absolute; top: 60%">
-      <StatisticGraph />
-      <StatisticExplanation />
+    <InputTextArea />
+    <div class="module" style="position: absolute; top: 60%; width: 60%">
+      <AnalysedParametersAndText />
     </div>
   </div>
 

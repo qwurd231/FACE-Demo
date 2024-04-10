@@ -1,7 +1,6 @@
-from Text.text import router as text_router
+from Text.text_process import router as text_router
 from fastapi import FastAPI
 import uvicorn
-from Text.text import router as text_router
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()

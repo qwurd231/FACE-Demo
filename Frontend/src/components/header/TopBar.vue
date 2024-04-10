@@ -1,7 +1,7 @@
 <template>
   <nav class="navbar navbar-expand-lg fixed-top" :class="[`navbar-${theme}`, `bg-${theme}`]">
     <div class="container-fluid">
-      <a class="navbar-brand" href="#">Navbar</a>
+      <a class="navbar-brand" href="#">FACE</a>
       <button
         class="navbar-toggler"
         type="button"
@@ -14,7 +14,7 @@
       >
         <span class="navbar-toggler-icon"></span>
       </button>
-      <div class="collapse navbar-collapse" id="navbarNav">
+      <!-- <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav">
           <li class="nav-item">
             <a class="nav-link active" aria-current="page" href="#">Home</a>
@@ -29,7 +29,7 @@
             <a class="nav-link disabled">Disabled</a>
           </li>
         </ul>
-      </div>
+      </div> -->
       <form>
         <button type="button" :class="['btn', `btn-outline-${btn_theme}`]" @click="toggleTheme()">
           Toggle Theme
