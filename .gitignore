@@ -3,5 +3,9 @@
 
 /Backend/FastAPI/__pycache__
 /Backend/FastAPI/Text/__pycache__
+/Backend/FACE/FACE-main/.gitignore
+/Backend/FACE/FACE-main/LICENSE
+/Backend/FACE/FACE-main/plot/.gitignore
+/Backend/FACE/FACE-main
 
 command.bat
