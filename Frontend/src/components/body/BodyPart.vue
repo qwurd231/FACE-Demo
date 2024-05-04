@@ -6,14 +6,26 @@ import pako from "pako";
 
 const text = ref("");
 const result = ref({
-  text: null,
-  frequency: null,
-  spectra: null,
+  text: [],
+  color: [],
+  frequency: [],
+  spectra: [],
 });
 const show = ref(false);
 const radio = ref("FACE");
 
-function convertToResult(compressedData, index) {
+function clean() {
+  document.querySelector("textarea").value = "";
+  text.value = "";
+  result.value.text = [];
+  result.value.color = [];
+  result.value.frequency = [];
+  result.value.spectra = [];
+  return;
+}
+
+function gzipToResult(compressedData) {
+  console.log(compressedData);
   let charCodes = [];
   let l = Object.keys(compressedData).length;
 
@@ -22,68 +34,180 @@ function convertToResult(compressedData, index) {
     // Get the character code for each character
     charCodes.push(compressedData[i]);
   }
+  console.log(charCodes);
 
   // Create a Uint8Array from the character codes
   let bytes_text = new Uint8Array(charCodes);
 
-  // Convert the Uint8Array to a string
+  //
   let t = pako.ungzip(bytes_text);
   let result_data = new TextDecoder().decode(t);
-  if (index !== 0) {
-    result_data = result_data
-      .substring(1, result_data.length - 1)
-      .split(",")
-      .map(Number);
+
+  var result = result_data.split("</>");
+
+  return result;
+}
+
+function checkWhitespaceString(str, valid) {
+  const isWhitespaceString = (str) => !str.replace(/\s/g, "").length;
+  const isNewLine = (str) => !str.replace(/\n/g, "").length;
+  if (isWhitespaceString(str) || isNewLine(str)) {
+    alert("Please enter some text.");
+    valid = false;
+    clean();
+    return valid;
+  } else {
+    return valid;
   }
-  return result_data;
+}
+
+function checkEnglishText(str, valid) {
+  const isEnglish = (str) =>
+    /^[A-Za-z0-9,-–—−—―›~″•±×.:;/^#@™®%&`…|€$!?_=+\-$*''"(){}<>\s[\]\\]*$/.test(
+      str
+    );
+
+  // test if string contains "<*/>", where * is any character, use regex
+  //const isHTML = (str) => /<.*\/>/.test(str);
+
+  if (!isEnglish(str)) {
+    alert("Please enter English text only.");
+    valid = false;
+    clean();
+    return valid;
+  } else {
+    return valid;
+  }
+}
+
+function removeNewLine(str) {
+  let newText = "";
+  let newlineCount = 0;
+
+  for (let i = 0; i < str.length; i++) {
+    if (str[i] === "\n") {
+      newlineCount++;
+      if (newlineCount === 3) {
+        console.log("Removed extra new line");
+        continue; // Skip adding this newline character
+      }
+    } else {
+      if (newlineCount === 1) {
+        newText = newText.trimRight() + " ";
+      }
+      newlineCount = 0;
+    }
+    newText += str[i];
+  }
+  return newText;
 }
 
 async function submit() {
   console.log(text);
-  const isWhitespaceString = (str) => !str.replace(/\s/g, "").length;
-  if (isWhitespaceString(text.value)) {
-    alert("Please enter some text.");
-    document.querySelector("textarea").value = "";
-    text.value = "";
+
+  let valid = true;
+
+  if (radio.value === "FACE") {
+    valid =
+      checkEnglishText(text.value, valid) &&
+      checkWhitespaceString(text.value, valid);
+  }
+
+  if (!valid) {
+    show.value = false;
     return;
   }
-  console.log(text.value);
-  let gzip_text = pako.gzip(text.value);
+  let sentText = removeNewLine(text.value);
+  console.log(sentText);
+  console.log(sentText.length);
+  let gzip_text = pako.gzip(sentText);
   console.log(gzip_text);
-  console.log(typeof gzip_text);
+  console.log(gzip_text.length);
+
   try {
-    const response = await axios.post(
-      "/api/text",
-      {
-        text: gzip_text,
-      },
-      {
-        headers: {
-          "Content-Encoding": "gzip",
+    let response;
+    if (sentText.length > gzip_text.length) {
+      response = await axios.post(
+        "/api/text",
+        {
+          text: gzip_text,
         },
+        {
+          headers: {
+            "Content-Encoding": "gzip",
+          },
+        }
+      );
+
+      clean();
+      console.log(response);
+
+      if (response.status === 200) {
+        result.value.text = gzipToResult(response.data)[0]
+          .substring(5)
+          .split("<comma/>");
+        result.value.color = gzipToResult(response.data)[1]
+          .substring(6)
+          .split(",");
+        result.value.frequency = gzipToResult(response.data)[2]
+          .substring(10)
+          .split(",");
+        result.value.spectra = gzipToResult(response.data)[3]
+          .substring(8)
+          .split(",");
+
+        console.log(result.value.text);
+
+        console.log(result.value.color);
+
+        console.log(result.value.frequency);
+
+        console.log(result.value.spectra);
+
+        show.value = true;
+        console.log(result);
+        console.log(response.headers);
+      } else {
+        console.log(response.status);
+        alert(response.statusText);
       }
-    );
-    document.querySelector("textarea").value = "";
-    text.value = "";
-    console.log(response);
-    if (response.status === 200) {
-      result.value.text = convertToResult(response.data.text, 0);
-      console.log(result.value.text);
-
-      result.value.frequency = convertToResult(response.data.frequency, 1);
-      //result.value.frequency = response.data.frequency;
-      console.log(result.value.frequency);
-
-      result.value.spectra = convertToResult(response.data.spectra, 1);
-      //result.value.spectra = response.data.spectra;
-      console.log(result.value.spectra);
-
-      show.value = true;
-      console.log(result);
-      console.log(response.headers);
     } else {
-      console.log(response.status);
-      alert(response.statusText);
+      response = await axios.post("/api/text", {
+        text: sentText,
+      });
+
+      clean();
+      console.log(response);
+
+      if (response.status === 200) {
+        result.value.text = gzipToResult(response.data)[0]
+          .substring(5)
+          .split("<comma/>");
+        result.value.color = gzipToResult(response.data)[1]
+          .substring(6)
+          .split(",");
+        result.value.frequency = gzipToResult(response.data)[2]
+          .substring(10)
+          .split(",");
+        result.value.spectra = gzipToResult(response.data)[3]
+          .substring(8)
+          .split(",");
+
+        console.log(result.value.text);
+
+        console.log(result.value.color);
+
+        console.log(result.value.frequency);
+
+        console.log(result.value.spectra);
+
+        show.value = true;
+        console.log(result);
+        console.log(response.headers);
+      } else {
+        console.log(response.status);
+        alert(response.statusText);
+      }
     }
   } catch (error) {
     console.error(error);
@@ -103,8 +227,10 @@ const createGraph = () => {
           x: result.value.frequency,
           y: result.value.spectra,
           mode: "lines",
+          line: { shape: "spline", smoothing: 1.3 },
           type: "scatter",
-          name: "estimator",
+          name: "first plot",
+          showlegend: true,
         },
       ],
       {
@@ -127,7 +253,7 @@ onUpdated(() => {
   <el-radio-group
     v-model="radio"
     size="large"
-    style="display: flex; justify-content: center; margin-top: 3%"
+    style="display: flex; justify-content: center; margin-top: 120px"
   >
     <el-radio-button label="FACE" value="FACE" />
     <el-radio-button label="FACE II" value="FACE II" />
@@ -144,7 +270,7 @@ onUpdated(() => {
     :autosize="{ minRows: 8, maxRows: 11 }"
     resize="none"
     type="textarea"
-    maxlength="5000"
+    maxlength="500000"
     show-word-limit
     placeholder="Please input your text here"
     @keydown.enter.exact="submit"
@@ -177,24 +303,31 @@ onUpdated(() => {
         border-radius: 25px;
       "
     >
-      <h2 style="text-align: center; font-size: x-large">Analysed Text</h2>
-      <p
-        style="
-          font-size: x-large;
-          -ms-word-break: break-all;
-          word-break: break-all;
-          word-break: break-word;
-          -webkit-hyphens: auto;
-          -moz-hyphens: auto;
-          -ms-hyphens: auto;
-          hyphens: auto;
-        "
+      <h2 style="text-align: center; font-size: xx-large">Analysed Text</h2>
+      <div
+        v-for="(item, index) in result.text"
+        :key="index"
+        style="padding: 0.5% 3%"
       >
-        {{ result.text }}
-      </p>
+        <span
+          style="
+            font-size: x-large;
+            font-size: x-large;
+            -ms-word-break: break-all;
+            word-break: break-all;
+            word-break: break-word;
+            -webkit-hyphens: auto;
+            -moz-hyphens: auto;
+            -ms-hyphens: auto;
+            hyphens: auto;
+          "
+          :style="{ backgroundColor: result.color[index] }"
+        >
+          {{ item }}
+        </span>
+      </div>
     </div>
     <div
-      id="graph"
       style="
         width: 70%;
         height: 30%;
@@ -202,10 +335,13 @@ onUpdated(() => {
         margin-right: 14.5%;
         margin-top: 3%;
         padding: max(0.5%, 10px);
+        padding-top: 1%;
         border: 5px solid aqua;
         border-radius: 25px;
       "
-    ></div>
+    >
+      <div id="graph"></div>
+    </div>
   </div>
   <div v-else>
     <el-empty description="Analysis results will be displayed here." />
