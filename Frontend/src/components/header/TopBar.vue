@@ -68,7 +68,7 @@ const value1 = ref(true);
                   pointer-events: none;
                 "
                 src="@/assets/sun.svg"
-                alt="day mode"
+                role="day mode"
               />
             </span>
           </template>
@@ -83,7 +83,7 @@ const value1 = ref(true);
                   pointer-events: none;
                 "
                 src="@/assets/moon.svg"
-                alt="night mode"
+                role="night mode"
               />
             </span>
           </template>

@@ -145,7 +145,7 @@ async function submit() {
       if (response.status === 200) {
         result.value.text = gzipToResult(response.data)[0]
           .substring(5)
-          .split("<comma/>");
+          .split("の");
         result.value.color = gzipToResult(response.data)[1]
           .substring(6)
           .split(",");
@@ -182,7 +182,7 @@ async function submit() {
       if (response.status === 200) {
         result.value.text = gzipToResult(response.data)[0]
           .substring(5)
-          .split("<comma/>");
+          .split("の");
         result.value.color = gzipToResult(response.data)[1]
           .substring(6)
           .split(",");
@@ -270,7 +270,7 @@ onUpdated(() => {
     :autosize="{ minRows: 8, maxRows: 11 }"
     resize="none"
     type="textarea"
-    maxlength="500000"
+    maxlength="10000"
     show-word-limit
     placeholder="Please input your text here"
     @keydown.enter.exact="submit"
