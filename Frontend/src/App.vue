@@ -1,7 +1,7 @@
 <script setup>
 import TopBar from "@/components/header/TopBar.vue";
 import BodyPart from "@/components/body/BodyPart.vue";
-import FooterDiv from "@/components/footer/FooterDiv.vue";
+//import FooterDiv from "@/components/footer/FooterDiv.vue";
 </script>
 
 <template>
@@ -12,7 +12,7 @@ import FooterDiv from "@/components/footer/FooterDiv.vue";
   <main>
     <BodyPart />
     <el-backtop :right="30" :bottom="30" />
-    <FooterDiv />
+    <!-- <FooterDiv /> -->
   </main>
 </template>
 

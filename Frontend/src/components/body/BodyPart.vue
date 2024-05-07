@@ -11,12 +11,13 @@ const result = ref({
   frequency: [],
   spectra: [],
 });
-const show = ref(false);
+const show = ref(0);
 const radio = ref("FACE");
 
 function clean() {
   document.querySelector("textarea").value = "";
   text.value = "";
+  show.value = 1;
   result.value.text = [];
   result.value.color = [];
   result.value.frequency = [];
@@ -43,7 +44,7 @@ function gzipToResult(compressedData) {
   let t = pako.ungzip(bytes_text);
   let result_data = new TextDecoder().decode(t);
 
-  var result = result_data.split("</>");
+  var result = result_data.split("ü");
 
   return result;
 }
@@ -63,7 +64,7 @@ function checkWhitespaceString(str, valid) {
 
 function checkEnglishText(str, valid) {
   const isEnglish = (str) =>
-    /^[A-Za-z0-9,-–—−—―›~″•±×.:;/^#@™®%&`…|€$!?_=+\-$*''"(){}<>\s[\]\\]*$/.test(
+    /^[A-Za-z0-9,-–—−—―›~″•±×.:;/^#@™®%&`…|€$!?_=+\-$*''"‘’“”(){}<>\s[\]\\]*$/.test(
       str
     );
 
@@ -114,7 +115,7 @@ async function submit() {
   }
 
   if (!valid) {
-    show.value = false;
+    show.value = 0;
     return;
   }
   let sentText = removeNewLine(text.value);
@@ -123,6 +124,7 @@ async function submit() {
   let gzip_text = pako.gzip(sentText);
   console.log(gzip_text);
   console.log(gzip_text.length);
+  clean();
 
   try {
     let response;
@@ -139,22 +141,31 @@ async function submit() {
         }
       );
 
-      clean();
       console.log(response);
 
       if (response.status === 200) {
         result.value.text = gzipToResult(response.data)[0]
           .substring(5)
-          .split("の");
+          .split("ö");
         result.value.color = gzipToResult(response.data)[1]
           .substring(6)
           .split(",");
         result.value.frequency = gzipToResult(response.data)[2]
           .substring(10)
-          .split(",");
+          .split("ß")
+          .map(function (x) {
+            if (x.split(",").length === 1) return [];
+            else return x.split(",").map(Number);
+          })
+          .filter((x) => x.length > 0);
         result.value.spectra = gzipToResult(response.data)[3]
           .substring(8)
-          .split(",");
+          .split("ß")
+          .map(function (x) {
+            if (x.split(",").length === 1) return [];
+            else return x.split(",").map(Number);
+          })
+          .filter((x) => x.length > 0);
 
         console.log(result.value.text);
 
@@ -164,9 +175,10 @@ async function submit() {
 
         console.log(result.value.spectra);
 
-        show.value = true;
         console.log(result);
         console.log(response.headers);
+
+        show.value = 2;
       } else {
         console.log(response.status);
         alert(response.statusText);
@@ -182,16 +194,26 @@ async function submit() {
       if (response.status === 200) {
         result.value.text = gzipToResult(response.data)[0]
           .substring(5)
-          .split("の");
+          .split("ö");
         result.value.color = gzipToResult(response.data)[1]
           .substring(6)
           .split(",");
         result.value.frequency = gzipToResult(response.data)[2]
           .substring(10)
-          .split(",");
+          .split(",")
+          .map(function (x) {
+            if (x.split(",").length === 1) return [];
+            else return x.split(",").map(Number);
+          })
+          .filter((x) => x.length > 0);
         result.value.spectra = gzipToResult(response.data)[3]
           .substring(8)
-          .split(",");
+          .split(",")
+          .map(function (x) {
+            if (x.split(",").length === 1) return [];
+            else return x.split(",").map(Number);
+          })
+          .filter((x) => x.length > 0);
 
         console.log(result.value.text);
 
@@ -201,9 +223,10 @@ async function submit() {
 
         console.log(result.value.spectra);
 
-        show.value = true;
         console.log(result);
         console.log(response.headers);
+
+        show.value = 2;
       } else {
         console.log(response.status);
         alert(response.statusText);
@@ -220,32 +243,34 @@ const createGraph = () => {
   if (Graph) {
     console.log(result.value.frequency);
     console.log(result.value.spectra);
-    Plotly.newPlot(
-      Graph,
-      [
-        {
-          x: result.value.frequency,
-          y: result.value.spectra,
-          mode: "lines",
-          line: { shape: "spline", smoothing: 1.3 },
-          type: "scatter",
-          name: "first plot",
-          showlegend: true,
-        },
-      ],
-      {
-        margin: { t: 0 },
-        xaxis: { title: "frequency" },
-        yaxis: { title: "spectra" },
-      }
-    );
+    var data = [];
+    for (let i = 0; i < result.value.frequency.length; i++) {
+      data.push({
+        x: result.value.frequency[i],
+        y: result.value.spectra[i],
+        type: "scatter",
+        mode: "lines",
+        line: { shape: "spline", smoothing: 1.3 },
+        name: "Spectra " + (i + 1),
+      });
+    }
+    Plotly.newPlot(Graph, data, {
+      margin: { t: 0 },
+      xaxis: { title: "frequency" },
+      yaxis: { title: "spectra" },
+    });
   } else {
     console.log("Plot container is " + Graph);
   }
 };
 
 onUpdated(() => {
-  if (show.value) createGraph();
+  if (show.value === 2) {
+    createGraph();
+  } else if (show.value === 1) {
+    document.querySelector("textarea").value = "";
+    text.value = "";
+  }
 });
 </script>
 
@@ -253,6 +278,7 @@ onUpdated(() => {
   <el-radio-group
     v-model="radio"
     size="large"
+    fill="darkcyan"
     style="display: flex; justify-content: center; margin-top: 120px"
   >
     <el-radio-button label="FACE" value="FACE" />
@@ -286,20 +312,21 @@ onUpdated(() => {
         left: 85%;
         margin-top: -2.5%;
       "
-      >Submit</el-button
     >
+      Submit
+    </el-button>
   </div>
 
-  <div v-if="show" style="margin-bottom: max(10%, 80px)">
+  <div v-if="show === 2" style="margin-bottom: max(10%, 80px)">
     <div
       style="
         width: 70%;
         height: 30%;
         margin-left: 14.5%;
         margin-right: 14.5%;
-        margin-top: 10%;
+        margin-top: max(8%, 50px);
         padding: max(0.5%, 10px);
-        border: 5px solid aqua;
+        border: 5px solid gainsboro;
         border-radius: 25px;
       "
     >
@@ -336,14 +363,46 @@ onUpdated(() => {
         margin-top: 3%;
         padding: max(0.5%, 10px);
         padding-top: 1%;
-        border: 5px solid aqua;
+        border: 5px solid gainsboro;
         border-radius: 25px;
       "
     >
       <div id="graph"></div>
     </div>
   </div>
+  <div v-else-if="show === 1">
+    <div
+      style="
+        position: relative;
+        margin-top: max(8%, 50px);
+        margin-bottom: max(3%, 20px);
+      "
+    >
+      <div class="loader"></div>
+    </div>
+  </div>
   <div v-else>
-    <el-empty description="Analysis results will be displayed here." />
+    <el-empty
+      class="empty"
+      description="Analysis results will be displayed here."
+    />
   </div>
 </template>
+
+<style scoped>
+/* HTML: <div class="loader"></div> */
+.loader {
+  margin: 0 auto;
+  width: 200px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 20px solid;
+  border-color: #555252 #bfb8b800;
+  animation: l1 1.5s infinite;
+}
+@keyframes l1 {
+  to {
+    transform: rotate(0.5turn);
+  }
+}
+</style>

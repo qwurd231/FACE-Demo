@@ -45,13 +45,27 @@ def slide_window(fre, spe, window_size, step_size):
     for i in range(0, len(spe) - window_size + 1, step_size):
         result_fre.append(fre[i + round(window_size / 2)])
         result_spe.append(sum(spe[i : i + window_size]) / window_size)
-        if i <= 15:
-            print("spe[i : i + window_size]: ", spe[i : i + window_size])
-            print("sum(spe[i : i + window_size]): ", sum(spe[i : i + window_size]))
-            print("spe[i: i + window_size]: ", spe[i: i + window_size])
-            print("result_spe: ", result_spe)
+
     return result_fre, result_spe
 
+
+def segment_fre_spe(fre, spe):
+    """Segment the frequency and spectra data."""
+
+    # split fre, spe whenever fre encounters 0.0
+    fre_np = np.array(fre)
+    spe_np = np.array(spe)
+
+    split_idx = np.where(fre_np == 0.0)
+
+    print("split_idx: ", split_idx)
+    fre_list = np.split(fre_np, split_idx[0])[1:]
+    spe_list = np.split(spe_np, split_idx[0])[1:]
+    
+    print(fre_list)
+    print(spe_list)
+
+    return fre_list, spe_list
 
 def get_valid_text(data, request: Request):
     """Get the valid text data."""
@@ -95,7 +109,6 @@ def process(model, tokenizer, text):
     log_softmax = nn.LogSoftmax(dim=1)
     
     for line in tqdm(text):
-        print("line: ", line)
         encoded_input = tokenizer(line,
                                   return_tensors='pt',
                                   padding=True,
@@ -169,8 +182,6 @@ def compute_fft(data):
     """Compute the frequency and spectra data."""
 
     freqs, powers = [], []
-    print(data)
-    print(len(data))
     for i in tqdm(range(len(data))):
         x = data[i]
         try:
@@ -222,35 +233,35 @@ def text(data: Text, request: Request):
         else:
             valid_text = [i.strip() for i in original_text.split('\n\n') if i.strip() != '']
         print("valid_text: ", valid_text)
-        color = ['#B7B94B' for _ in range(len(valid_text))]
+        
+        color = ["{0}{1}{2}".format("#", hex(1096011 + (i + 1) * (12040523 - 1096011) // len(valid_text))[2:].upper(), "A0" )for i in range(len(valid_text))]
 
         model, tokenizer = load_model()
         nll_loss = process(model, tokenizer, valid_text)
         print("nll_loss: ", nll_loss)
 
         df = fft_pipeline(nll_loss, n_samples=np.inf, normalize=False)
-        print("df: ", df)
-        print("df['freq']: ", df['freq'])
-        print("df['power']: ", df['power'])
+        df.to_csv('df.csv', index=False)
 
         frequency = df['freq'].tolist()
         spectra = df['power'].tolist()
+        frequency, spectra = segment_fre_spe(frequency, spectra)
+        print("frequency: ", frequency)
+        print("spectra: ", spectra)
 
-        slide_frequency, slide_spectra = slide_window(frequency, spectra, 2, 1)
+        # slide_frequency, slide_spectra = slide_window(frequency, spectra, 2, 1)
         # from list to string
-        # print(valid_text)
-        valid_text = 'の'.join(valid_text)
-        # print(valid_text)
-        # print(color)
+        valid_text = 'ö'.join(valid_text)
         color = ','.join(color)
-        # print(color)
-        slide_frequency = ','.join([str(i) for i in slide_frequency])
-        # print(slide_frequency)
-        slide_spectra = ','.join([str(i) for i in slide_spectra])
-        # print(slide_spectra)
+        slide_frequency = 'ß'.join([','.join([str(i) for i in f]) for f in frequency])
+        slide_spectra = 'ß'.join([','.join([str(i) for i in s]) for s in spectra])
+        #slide_frequency = ','.join([str(i) for i in slide_frequency])
+        print(slide_frequency)
+        #slide_spectra = ','.join([str(i) for i in slide_spectra])
+        print(slide_spectra)
 
-        s = "text:" + valid_text + "</>color:" + color + "</>frequency:" \
-            + slide_frequency + "</>spectra:" + slide_spectra
+        s = "text:" + valid_text + "ücolor:" + color + "üfrequency:" \
+            + slide_frequency + "üspectra:" + slide_spectra
         # print(s)
         # print(len(s))
         result = gzip.compress(s.encode('utf-8'))
