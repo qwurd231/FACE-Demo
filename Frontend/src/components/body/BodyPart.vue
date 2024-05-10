@@ -44,7 +44,7 @@ function gzipToResult(compressedData) {
   let t = pako.ungzip(bytes_text);
   let result_data = new TextDecoder().decode(t);
 
-  var result = result_data.split("ü");
+  var result = result_data.split("け");
 
   return result;
 }
@@ -94,7 +94,7 @@ function removeNewLine(str) {
       }
     } else {
       if (newlineCount === 1) {
-        newText = newText.trimRight() + " ";
+        newText = newText.trimEnd() + " ";
       }
       newlineCount = 0;
     }
@@ -146,26 +146,22 @@ async function submit() {
       if (response.status === 200) {
         result.value.text = gzipToResult(response.data)[0]
           .substring(5)
-          .split("ö");
+          .split("分");
         result.value.color = gzipToResult(response.data)[1]
           .substring(6)
           .split(",");
         result.value.frequency = gzipToResult(response.data)[2]
           .substring(10)
-          .split("ß")
+          .split("る")
           .map(function (x) {
-            if (x.split(",").length === 1) return [];
-            else return x.split(",").map(Number);
+            return x.split(",").map(Number);
           })
-          .filter((x) => x.length > 0);
         result.value.spectra = gzipToResult(response.data)[3]
           .substring(8)
-          .split("ß")
+          .split("る")
           .map(function (x) {
-            if (x.split(",").length === 1) return [];
-            else return x.split(",").map(Number);
+            return x.split(",").map(Number);
           })
-          .filter((x) => x.length > 0);
 
         console.log(result.value.text);
 
@@ -194,26 +190,23 @@ async function submit() {
       if (response.status === 200) {
         result.value.text = gzipToResult(response.data)[0]
           .substring(5)
-          .split("ö");
+          .split("分");
         result.value.color = gzipToResult(response.data)[1]
           .substring(6)
           .split(",");
         result.value.frequency = gzipToResult(response.data)[2]
           .substring(10)
-          .split(",")
+          .split("る")
           .map(function (x) {
-            if (x.split(",").length === 1) return [];
-            else return x.split(",").map(Number);
+            return x.split(",").map(Number);
           })
           .filter((x) => x.length > 0);
         result.value.spectra = gzipToResult(response.data)[3]
           .substring(8)
-          .split(",")
+          .split("る")
           .map(function (x) {
-            if (x.split(",").length === 1) return [];
-            else return x.split(",").map(Number);
+            return x.split(",").map(Number);
           })
-          .filter((x) => x.length > 0);
 
         console.log(result.value.text);
 
@@ -375,7 +368,7 @@ onUpdated(() => {
       style="
         position: relative;
         margin-top: max(8%, 50px);
-        margin-bottom: max(3%, 20px);
+        margin-bottom: max(5%, 50px);
       "
     >
       <div class="loader"></div>
@@ -384,25 +377,23 @@ onUpdated(() => {
   <div v-else>
     <el-empty
       class="empty"
-      description="Analysis results will be displayed here."
+      description="Analysis results will be displayed here." 
     />
   </div>
 </template>
 
 <style scoped>
-/* HTML: <div class="loader"></div> */
 .loader {
+  width: 120px;
+  height: 20px;
   margin: 0 auto;
-  width: 200px;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  border: 20px solid;
-  border-color: #555252 #bfb8b800;
-  animation: l1 1.5s infinite;
+  -webkit-mask: linear-gradient(90deg,#000 70%,#0000 0) left/20% 100%;
+  background:
+   linear-gradient(rgb(53, 53, 53) 0 0) left -25% top 0 /20% 100% no-repeat
+   #ddd;
+  animation: l7 1s infinite steps(6);
 }
-@keyframes l1 {
-  to {
-    transform: rotate(0.5turn);
-  }
+@keyframes l7 {
+    100% {background-position: right -25% top 0}
 }
 </style>

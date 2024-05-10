@@ -14,6 +14,7 @@
 <style scoped>
 .footer {
   position: relative;
+  margin-top: max(35%, 300px);
   bottom: 0;
   width: 100%;
   display: flex;

@@ -22,6 +22,8 @@ import numpy as np
 import pandas as pd
 from scipy.fft import fft, fftfreq, fftshift
 
+import time
+
 router = APIRouter()
 
 class Text(BaseModel):
@@ -223,11 +225,15 @@ def text(data: Text, request: Request):
     else:
         # print(data.text)
         bytes_text = bytes([data.text[str(i)] for i in range(len(data.text))])
+        #bytes_text = np.array([data.text[str(i)] for i in range(len(data.text))], dtype=np.uint8).tobytes()
         # print('bytes_text: ', bytes_text)
         original_text = gzip.decompress(bytes_text).decode('utf-8')
 
     if original_text != '' and original_text is not None:
         # print(original_text)
+        # start = time.time()
+        # end = time.time()
+        # print('Processing time: ', end - start)
         if original_text.find('\n\n') == -1:
             valid_text = [original_text.strip()]
         else:
@@ -251,17 +257,15 @@ def text(data: Text, request: Request):
 
         # slide_frequency, slide_spectra = slide_window(frequency, spectra, 2, 1)
         # from list to string
-        valid_text = 'ö'.join(valid_text)
+        valid_text = '分'.join(valid_text)
         color = ','.join(color)
-        slide_frequency = 'ß'.join([','.join([str(i) for i in f]) for f in frequency])
-        slide_spectra = 'ß'.join([','.join([str(i) for i in s]) for s in spectra])
-        #slide_frequency = ','.join([str(i) for i in slide_frequency])
+        slide_frequency = 'る'.join([','.join([str(i) for i in f]) for f in frequency])
+        slide_spectra = 'る'.join([','.join([str(i) for i in s]) for s in spectra])
         print(slide_frequency)
-        #slide_spectra = ','.join([str(i) for i in slide_spectra])
         print(slide_spectra)
 
-        s = "text:" + valid_text + "ücolor:" + color + "üfrequency:" \
-            + slide_frequency + "üspectra:" + slide_spectra
+        s = "text:" + valid_text + "けcolor:" + color + "けfrequency:" \
+            + slide_frequency + "けspectra:" + slide_spectra
         # print(s)
         # print(len(s))
         result = gzip.compress(s.encode('utf-8'))
