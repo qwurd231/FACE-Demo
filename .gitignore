@@ -1,13 +1,15 @@
-/Frontend/node_modules
-/Frontend/.vscode
+Frontend/node_modules
 
-/Backend/FastAPI/__pycache__
-/Backend/FastAPI/Text/__pycache__
-/Backend/FACE/FACE-main/.gitignore
-/Backend/FACE/FACE-main/LICENSE
-/Backend/FACE/FACE-main/plot/.gitignore
-/Backend/FACE/FACE-main
+Backend/FastAPI/__pycache__
+Backend/FastAPI/Text/__pycache__
+Backend/FACE
+
+Backend/FastAPI/Text/data
+Backend/FastAPI/df.csv
+Backend/FastAPI/gam_graph.py
 
 command.bat
-Backend/FastAPI/test.txt
-Backend/FastAPI/df.csv
+.pytest_cache
+Backend/FastAPI/gpt2_test.py
+.vscode
+Backend/FastAPI/sqlite.db

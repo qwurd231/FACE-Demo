@@ -10,6 +10,12 @@ const result = ref({
   color: [],
   frequency: [],
   spectra: [],
+  model_text: '',
+  model_frequency: [],
+  model_spectra: [],
+  model_fittedvalues: [],
+  prompt_length: 0,
+  text_fittedvalues: [],
 });
 const show = ref(0);
 const radio = ref("FACE");
@@ -22,6 +28,9 @@ function clean() {
   result.value.color = [];
   result.value.frequency = [];
   result.value.spectra = [];
+  result.value.model_text = '';
+  result.value.model_frequency = [];
+  result.value.model_spectra = [];
   return;
 }
 
@@ -44,9 +53,9 @@ function gzipToResult(compressedData) {
   let t = pako.ungzip(bytes_text);
   let result_data = new TextDecoder().decode(t);
 
-  var result = result_data.split("け");
+  var res = result_data.split("け");
 
-  return result;
+  return res;
 }
 
 function checkWhitespaceString(str, valid) {
@@ -64,7 +73,7 @@ function checkWhitespaceString(str, valid) {
 
 function checkEnglishText(str, valid) {
   const isEnglish = (str) =>
-    /^[A-Za-z0-9,-–—−—―›~″•±×.:;/^#@™®%&`…|€$!?_=+\-$*''"‘’“”(){}<>\s[\]\\]*$/.test(
+    /^[A-Za-z0-9,-–—−—―›~″•±×\.:;\/^#@™®%&`…\|€\$!\?_=\+\-$*''"‘’“”()\{\}<>\s\[\]\\]*$/.test(
       str
     );
 
@@ -75,10 +84,8 @@ function checkEnglishText(str, valid) {
     alert("Please enter English text only.");
     valid = false;
     clean();
-    return valid;
-  } else {
-    return valid;
   }
+  return valid;
 }
 
 function removeNewLine(str) {
@@ -103,7 +110,72 @@ function removeNewLine(str) {
   return newText;
 }
 
+function result_split(response_data) {
+  let res = gzipToResult(response_data);
+  console.log(res);
+  result.value.text = res[0]
+          .substring(5)
+          .split("分");
+  result.value.color = res[1]
+    .substring(6)
+    .split(",");
+  result.value.frequency = res[2]
+    .substring(10)
+    .split("る")
+    .map(function (x) {
+      return x.split(",").map(Number);
+    })
+  result.value.spectra = res[3]
+    .substring(8)
+    .split("る")
+    .map(function (x) {
+      return x.split(",").map(Number);
+    })
+  result.value.model_text = res[4]
+    .substring(69);
+  result.value.model_frequency = res[5]
+    .substring(16)
+    .split(",").map(Number);
+  result.value.model_spectra = res[6]
+    .substring(14)
+    .split(",").map(Number);
+  result.value.model_fittedvalues = res[7]
+    .substring(19)
+    .split(",").map(Number);
+  result.value.prompt_length = Number(res[8].substring(14));
+  /*result.value.text_fittedvalues = res[9]
+    .substring(19)
+    .split(",").map(Number);*/
+
+  console.log('result_text:', result.value.text);
+
+  console.log('result_color:', result.value.color);
+
+  console.log('result_frequency:', result.value.frequency);
+
+  console.log('result_spectra:', result.value.spectra);
+
+  console.log('result_model_text:', result.value.model_text);
+
+  console.log('result_model_frequency:', result.value.model_frequency);
+
+  console.log('result_model_spectra:', result.value.model_spectra);
+
+  console.log('result_model_fittedvalues:', result.value.model_fittedvalues);
+
+  console.log('result_prompt_length:', result.value.prompt_length);
+
+  //console.log('result_text_fittedvalues:', result.value.text_fittedvalues);
+
+  console.log('result:', result.value);
+}
+
 async function submit() {
+  if (show.value === 1) {
+    alert("Please wait for the current analysis to complete.");
+    return;
+  }
+
   console.log(text);
 
   let valid = true;
@@ -144,35 +216,7 @@ async function submit() {
       console.log(response);
 
       if (response.status === 200) {
-        result.value.text = gzipToResult(response.data)[0]
-          .substring(5)
-          .split("分");
-        result.value.color = gzipToResult(response.data)[1]
-          .substring(6)
-          .split(",");
-        result.value.frequency = gzipToResult(response.data)[2]
-          .substring(10)
-          .split("る")
-          .map(function (x) {
-            return x.split(",").map(Number);
-          })
-        result.value.spectra = gzipToResult(response.data)[3]
-          .substring(8)
-          .split("る")
-          .map(function (x) {
-            return x.split(",").map(Number);
-          })
-
-        console.log(result.value.text);
-
-        console.log(result.value.color);
-
-        console.log(result.value.frequency);
-
-        console.log(result.value.spectra);
-
-        console.log(result);
-        console.log(response.headers);
+        result_split(response.data);
 
         show.value = 2;
       } else {
@@ -188,36 +232,7 @@ async function submit() {
       console.log(response);
 
       if (response.status === 200) {
-        result.value.text = gzipToResult(response.data)[0]
-          .substring(5)
-          .split("分");
-        result.value.color = gzipToResult(response.data)[1]
-          .substring(6)
-          .split(",");
-        result.value.frequency = gzipToResult(response.data)[2]
-          .substring(10)
-          .split("る")
-          .map(function (x) {
-            return x.split(",").map(Number);
-          })
-          .filter((x) => x.length > 0);
-        result.value.spectra = gzipToResult(response.data)[3]
-          .substring(8)
-          .split("る")
-          .map(function (x) {
-            return x.split(",").map(Number);
-          })
-
-        console.log(result.value.text);
-
-        console.log(result.value.color);
-
-        console.log(result.value.frequency);
-
-        console.log(result.value.spectra);
-
-        console.log(result);
-        console.log(response.headers);
+        result_split(response.data);
 
         show.value = 2;
       } else {
@@ -228,11 +243,14 @@ async function submit() {
   } catch (error) {
     console.error(error);
     alert(error);
+    if (error.response.status === 429) {
+      show.value = 0;
+    }
   }
 }
 
 const createGraph = () => {
-  const Graph = document.getElementById("graph");
+  const Graph = document.getElementById("origin-graph");
   if (Graph) {
     console.log(result.value.frequency);
     console.log(result.value.spectra);
@@ -255,6 +273,47 @@ const createGraph = () => {
   } else {
     console.log("Plot container is " + Graph);
   }
+
+  const ProcessedGraph = document.getElementById("processed-graph");
+  if (ProcessedGraph) {
+    console.log(result.value.model_frequency);
+    console.log(result.value.model_spectra);
+    console.log(result.value.model_fittedvalues);
+    var data = [];
+    data.push({
+      x: result.value.model_frequency,
+      y: result.value.model_spectra,
+      type: "scatter",
+      mode: "lines",
+      line: { shape: "spline", smoothing: 1.3 },
+      name: "Model",
+    });
+    /*let text_frequency = result.value.frequency.flat().sort((a, b) => a - b);
+    console.log('text_frequency:', text_frequency);
+    data.push({
+      x: text_frequency,
+      y: result.value.text_fittedvalues,
+      type: "scatter",
+      mode: "lines",
+      line: { shape: "spline", smoothing: 1.3 },
+      name: "Text Fitted Values",
+    });*/
+    data.push({
+      x: result.value.model_frequency,
+      y: result.value.model_fittedvalues,
+      type: "scatter",
+      mode: "lines",
+      line: { shape: "spline", smoothing: 1.3 },
+      name: "Fitted Values",
+    });
+    Plotly.newPlot(ProcessedGraph, data, {
+      margin: { t: 0 },
+      xaxis: { title: "model frequency" },
+      yaxis: { title: "model spectra" },
+    });
+  } else {
+    console.log("Plot container is " + ProcessedGraph);
+  }
 };
 
 onUpdated(() => {
@@ -265,6 +324,7 @@ onUpdated(() => {
     text.value = "";
   }
 });
+// -webkit-mask: linear-gradient(90deg,#000 70%,#0000 0) left/20% 100%;
 </script>
 
 <template>
@@ -289,7 +349,7 @@ onUpdated(() => {
     :autosize="{ minRows: 8, maxRows: 11 }"
     resize="none"
     type="textarea"
-    maxlength="10000"
+    maxlength="1000000"
     show-word-limit
     placeholder="Please input your text here"
     @keydown.enter.exact="submit"
@@ -327,8 +387,63 @@ onUpdated(() => {
       <div
         v-for="(item, index) in result.text"
         :key="index"
-        style="padding: 0.5% 3%"
+        style="padding: 0% 3%"
       >
+        <p
+          style="
+            font-size: x-large;
+            font-size: x-large;
+            -ms-word-break: break-all;
+            word-break: break-all;
+            word-break: break-word;
+            -webkit-hyphens: auto;
+            -moz-hyphens: auto;
+            -ms-hyphens: auto;
+            hyphens: auto;
+            margin-left: 3%;
+          "
+          :style="{ backgroundColor: result.color[index] }"
+        >
+          <span 
+            style="text-align: end;"
+            :style="{ backgroundColor: result.color[index] }"
+          >
+            {{ index + 1 }}
+          </span>
+
+          {{ item }}
+      </p>
+      </div>
+    </div>
+    <div
+      style="
+        width: 70%;
+        height: 30%;
+        margin-left: 14.5%;
+        margin-right: 14.5%;
+        margin-top: 3%;
+        padding: max(0.5%, 10px);
+        padding-top: 1%;
+        border: 5px solid gainsboro;
+        border-radius: 25px;
+      "
+    >
+      <div id="origin-graph"></div>
+    </div>
+    <div
+      style="
+        width: 70%;
+        height: 30%;
+        margin-left: 14.5%;
+        margin-right: 14.5%;
+        margin-top: max(8%, 50px);
+        padding: max(0.5%, 10px);
+        border: 5px solid gainsboro;
+        border-radius: 25px;
+      "
+    >
+      <h2 style="text-align: center; font-size: xx-large">Model Text</h2>
+      <div style="padding: 0% 3%">
         <span
           style="
             font-size: x-large;
@@ -340,10 +455,28 @@ onUpdated(() => {
             -moz-hyphens: auto;
             -ms-hyphens: auto;
             hyphens: auto;
+            margin-left: 3%;
+            background-color: paleturquoise;
           "
-          :style="{ backgroundColor: result.color[index] }"
         >
-          {{ item }}
+          {{ result.model_text.substring(0, result.prompt_length) }}
+        </span>
+        <span 
+          style="
+            background-color: white;
+            color: black;
+            font-size: x-large;
+            font-size: x-large;
+            -ms-word-break: break-all;
+            word-break: break-all;
+            word-break: break-word;
+            -webkit-hyphens: auto;
+            -moz-hyphens: auto;
+            -ms-hyphens: auto;
+            hyphens: auto;
+            margin-left: 3%;
+          ">
+            {{ result.model_text.substring(result.prompt_length) }}
         </span>
       </div>
     </div>
@@ -360,7 +493,7 @@ onUpdated(() => {
         border-radius: 25px;
       "
     >
-      <div id="graph"></div>
+      <div id="processed-graph"></div>
     </div>
   </div>
   <div v-else-if="show === 1">
@@ -381,13 +514,12 @@ onUpdated(() => {
     />
   </div>
 </template>
-
 <style scoped>
 .loader {
   width: 120px;
   height: 20px;
   margin: 0 auto;
-  -webkit-mask: linear-gradient(90deg,#000 70%,#0000 0) left/20% 100%;
+  mask: linear-gradient(90deg,#000 70%,#0000 0) left/20% 100%;
   background:
    linear-gradient(rgb(53, 53, 53) 0 0) left -25% top 0 /20% 100% no-repeat
    #ddd;

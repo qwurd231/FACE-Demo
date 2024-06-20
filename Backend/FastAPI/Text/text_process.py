@@ -9,7 +9,7 @@
 
 import gzip
 from typing import Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from starlette.requests import Request
 
@@ -22,9 +22,54 @@ import numpy as np
 import pandas as pd
 from scipy.fft import fft, fftfreq, fftshift
 
+from sqlite_db_setting import insert_data, select_data, create_connection, create_table, delete_old_data, delete_all_data
 import time
 
+from statsmodels.gam.api import GLMGam
+from statsmodels.gam.smooth_basis import CubicSplines
+
 router = APIRouter()
+
+counter = True
+
+def allowed_ip(request: Request):
+    """Check if the request is allowed."""
+
+    # if request.client.host in ip_list:
+    #     raise HTTPException(status_code=429, detail="Too Many Requests, please wait for 60 seconds.")
+    # return True
+    conn = create_connection("sqlite.db")
+    print("this is the connection", conn)
+    create_table_sql = """CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ip_address TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )"""
+    create_table(conn, create_table_sql)
+
+    select_data_sql = f"SELECT * FROM users WHERE ip_address = '{request.client.host}'"
+    rows = select_data(conn, select_data_sql)
+    print(rows)
+    global counter
+    if not counter:
+        counter = True
+        raise HTTPException(status_code=429, detail="Too Many Requests, please wait for 60 seconds.")
+    
+    counter = False
+
+    insert_data_sql = f"INSERT INTO users (ip_address) VALUES ('{request.client.host}')"
+    insert_data(conn, insert_data_sql)
+
+    return True 
+
+def check_every_minute():
+    conn = create_connection("sqlite.db")
+
+    while True:
+        delete_old_data(conn, "DELETE FROM users WHERE created_at < ?")
+        print("2 seconds sleep")
+        time.sleep(2)
+
 
 class Text(BaseModel):
     """Model for text data."""	
@@ -39,6 +84,39 @@ class Result(BaseModel):
 
     text: Optional[dict] = None
 
+def generate_model_text(input_prompt: str):
+    # Load pre-trained model and tokenizer
+    model = GPT2LMHeadModel.from_pretrained("gpt2")
+    tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+
+    # Encode text input
+    print("Input text length:", len(input_prompt))
+    input_ids = tokenizer.encode(input_prompt, return_tensors="pt")
+    print(input_ids)
+
+    print('the length of input_ids:', len(input_ids[0]))
+    index = 0
+    final_text = ''
+
+    while index < len(input_ids[0]):
+        fixed_length_input_ids = input_ids[:, index:index+1000]
+        print('the length of fixed_length_input_ids:', len(fixed_length_input_ids[0]))
+        print('the shape of fixed_length_input_ids:', fixed_length_input_ids.shape)
+        index += 1000
+
+        # Generate text
+        output = model.generate(fixed_length_input_ids, num_return_sequences=1, 
+                                do_sample=True, attention_mask=None, no_repeat_ngram_size=2, 
+                                top_k=50, top_p=0.95, temperature=0.7)
+        output_text = tokenizer.decode(output[0], skip_special_tokens=True)
+
+        # Append the generated text to the final text
+        final_text += output_text
+
+    print("Final text:", final_text)
+    print("Final text length:", len(final_text))
+    return final_text
+
 def slide_window(fre, spe, window_size, step_size):
     """Slide window to get the frequency and spectra data."""
 
@@ -49,7 +127,6 @@ def slide_window(fre, spe, window_size, step_size):
         result_spe.append(sum(spe[i : i + window_size]) / window_size)
 
     return result_fre, result_spe
-
 
 def segment_fre_spe(fre, spe):
     """Segment the frequency and spectra data."""
@@ -212,11 +289,53 @@ def _read_data(text, N=np.inf):
             break
     return data
 
+def calculate_fre_spe(text: list):
+    model, tokenizer = load_model()
+    nll_loss = process(model, tokenizer, text)
+    print("nll_loss: ", nll_loss)
 
-@router.post("/text")
+    df = fft_pipeline(nll_loss, n_samples=np.inf, normalize=False)
+    df.to_csv('df.csv', index=False)
+
+    frequency = df['freq'].tolist()
+    spectra = df['power'].tolist()
+    frequency, spectra = segment_fre_spe(frequency, spectra)
+
+    return frequency, spectra, df
+
+def gam_graph(df: pd.DataFrame, index: int):
+    if index == 1:
+        x_spline = df['freq']
+    else:
+        x_spline = []
+        for i in range(len(df['freq'])):
+            x_spline.extend([df['freq'][i]])
+        x_spline.sort()
+    print('x_spline:', x_spline)
+    cs = CubicSplines(x_spline, df=[20])
+    if index == 1:
+        gam_bs = GLMGam.from_formula('power ~ freq', data=df, smoother=cs)
+    else:
+        df['freq'] = x_spline
+        df_power = []
+        for i in range(len(df['power'])):
+            df_power.extend([df['power'][i]])
+        df['power'] = df_power.sort()
+        gam_bs = GLMGam.from_formula('power ~ freq', data=df, smoother=cs)
+
+    res_bs = gam_bs.fit()
+    print('res_bs.fittedvalues:', res_bs.fittedvalues)
+    print(res_bs.summary())
+
+    return res_bs.fittedvalues
+
+@router.post("/text", dependencies=[Depends(allowed_ip)])
 def text(data: Text, request: Request):
     """Process the text data."""
 
+    # conn = create_connection("sqlite.db")
+    # insert_data_sql = f"INSERT INTO users (ip_address) VALUES ('{request.client.host}')"
+    # insert_data(conn, insert_data_sql)
     original_text = ''
     print(request.headers)
     if 'content-encoding' not in request.headers \
@@ -230,43 +349,54 @@ def text(data: Text, request: Request):
         original_text = gzip.decompress(bytes_text).decode('utf-8')
 
     if original_text != '' and original_text is not None:
-        # print(original_text)
-        # start = time.time()
-        # end = time.time()
-        # print('Processing time: ', end - start)
         if original_text.find('\n\n') == -1:
             valid_text = [original_text.strip()]
         else:
             valid_text = [i.strip() for i in original_text.split('\n\n') if i.strip() != '']
         print("valid_text: ", valid_text)
+
+        input_prompt = "This is half of the text, please complete the other half: "
+        input_text = input_prompt + ' '.join(valid_text[:len(valid_text) // 2])[0:-1]
+        print("input_text: ", input_text)
+        model_text = generate_model_text(input_text)
         
         color = ["{0}{1}{2}".format("#", hex(1096011 + (i + 1) * (12040523 - 1096011) // len(valid_text))[2:].upper(), "A0" )for i in range(len(valid_text))]
 
-        model, tokenizer = load_model()
-        nll_loss = process(model, tokenizer, valid_text)
-        print("nll_loss: ", nll_loss)
-
-        df = fft_pipeline(nll_loss, n_samples=np.inf, normalize=False)
-        df.to_csv('df.csv', index=False)
-
-        frequency = df['freq'].tolist()
-        spectra = df['power'].tolist()
-        frequency, spectra = segment_fre_spe(frequency, spectra)
+        frequency, spectra, df = calculate_fre_spe(valid_text)
         print("frequency: ", frequency)
         print("spectra: ", spectra)
+        model_fre, model_spe, model_df = calculate_fre_spe([model_text])
+        print("model_fre: ", model_fre)
+        print("model_spe: ", model_spe)
+
+        #text_fittedvalues = gam_graph(df, 0)
+        #print("fittedvalues: ", text_fittedvalues)
+        model_fittedvalues = gam_graph(model_df, 1)
+        print("fittedvalues: ", model_fittedvalues)
 
         # slide_frequency, slide_spectra = slide_window(frequency, spectra, 2, 1)
         # from list to string
         valid_text = '分'.join(valid_text)
         color = ','.join(color)
-        slide_frequency = 'る'.join([','.join([str(i) for i in f]) for f in frequency])
-        slide_spectra = 'る'.join([','.join([str(i) for i in s]) for s in spectra])
-        print(slide_frequency)
-        print(slide_spectra)
+        origin_join_frequency = 'る'.join([','.join([str(i) for i in f]) for f in frequency])
+        origin_join_spectra = 'る'.join([','.join([str(i) for i in s]) for s in spectra])
+        model_frequency = ','.join([str(i) for i in model_fre[0]])
+        model_spectra = ','.join([str(i) for i in model_spe[0]])
+        m_fittedvalues = ','.join([str(i) for i in model_fittedvalues])
+        #t_fittedvalues = ','.join([str(i) for i in text_fittedvalues])
+        
+        print("origin_frequency:", origin_join_frequency)
+        print("origin_spectra:", origin_join_spectra)
+        print("model_frequency:", model_frequency)
+        print("model_spectra:", model_spectra)
+        print("model_fittedvalues:", model_fittedvalues)
 
         s = "text:" + valid_text + "けcolor:" + color + "けfrequency:" \
-            + slide_frequency + "けspectra:" + slide_spectra
-        # print(s)
+            + origin_join_frequency + "けspectra:" + origin_join_spectra + "けmodel text:" \
+            + model_text + "けmodel frequency:" + model_frequency + "けmodel spectra:" + model_spectra \
+            + "けmodel fittedvalues:" + m_fittedvalues + "けpropmt length:" + str(len(input_text) - len(input_prompt)) \
+        #    + "けtexts fittedvalues:" + t_fittedvalues
+        print(s)
         # print(len(s))
         result = gzip.compress(s.encode('utf-8'))
         result_dict = {str(i): byte for i, byte in enumerate(result)}
@@ -292,3 +422,6 @@ def text(data: Text, request: Request):
         return result_dict
     else:
         raise HTTPException(status_code=400, detail="Invalid text data.")
+    
+if __name__ == "__main__":
+    check_every_minute()
